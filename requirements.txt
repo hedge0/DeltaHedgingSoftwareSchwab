@@ -1,5 +1,4 @@
 python-dotenv
 fredapi
 tastytrade
-scipy
 numba
