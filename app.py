@@ -203,6 +203,7 @@ def precompile_numba_functions():
     reducing latency during actual execution.
     """
     calculate_implied_volatility_baw(0.1, 100.0, 100.0, 0.01, 0.5, option_type='calls')
+    calculate_delta(100.0, 100.0, 0.5, 0.01, 0.2, option_type='calls')
 
 def load_config():
     """
