@@ -2,13 +2,7 @@ import asyncio
 from decimal import Decimal
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
-from fredapi import Fred
-from tastytrade import DXLinkStreamer, Equity, InstrumentType, NewOrder, OptionType, OrderAction, OrderTimeInForce, OrderType, PriceEffect, Session, Account
-from tastytrade.order import *
-from tastytrade.instruments import get_option_chain
-from tastytrade.utils import TastytradeError
-from tastytrade.dxfeed import EventType
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -128,40 +122,8 @@ async def main():
             if delta_imbalance != 0:
                 if delta_imbalance > 0:
                     print(f"Adjustment needed: Going short {delta_imbalance} shares to hedge the delta exposure.")
-
-                    symbol = Equity.get_equity(session, underlying_symbol)
-                    leg = symbol.build_leg(Decimal(delta_imbalance), OrderAction.SELL_TO_OPEN)
-
-                    order = NewOrder(
-                        time_in_force=OrderTimeInForce.DAY,
-                        order_type=OrderType.MARKET,
-                        legs=[leg],
-                        price_effect=PriceEffect.CREDIT
-                    )
-
-                    try:
-                        response = account.place_order(session, order, dry_run=config["DRY_RUN"])
-                        print(response)
-                    except TastytradeError as e:
-                        print(f"Order placement failed: {e}")
                 else:
                     print(f"Adjustment needed: Going long {-1 * delta_imbalance} shares to hedge the delta exposure.")
-                    
-                    symbol = Equity.get_equity(session, underlying_symbol)
-                    leg = symbol.build_leg(Decimal(-1 * delta_imbalance), OrderAction.BUY_TO_OPEN)
-
-                    order = NewOrder(
-                        time_in_force=OrderTimeInForce.DAY,
-                        order_type=OrderType.MARKET,
-                        legs=[leg],
-                        price_effect=PriceEffect.DEBIT
-                    )
-
-                    try:
-                        response = account.place_order(session, order, dry_run=config["DRY_RUN"])
-                        print(response)
-                    except TastytradeError as e:
-                        print(f"Order placement failed: {e}")
             else:
                 print("No adjustment needed. Delta is perfectly hedged with shares.")  
             print()
