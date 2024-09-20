@@ -9,7 +9,6 @@ from tastytrade.order import *
 from tastytrade.instruments import get_option_chain
 from tastytrade.utils import TastytradeError
 from tastytrade.dxfeed import EventType
-from models import calculate_delta, calculate_implied_volatility_baw
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,7 +28,6 @@ async def main():
     """
     global session, account, risk_free_rate, options_chains
     
-    precompile_numba_functions()
     load_config()
 
     try:
@@ -194,16 +192,6 @@ async def stream_raw_quotes(session, ticker_list):
             return mid_price
         else:
             raise ValueError("Quote does not contain bidPrice or askPrice")
-
-def precompile_numba_functions():
-    """
-    Precompile Numba functions to improve performance.
-
-    This method calls Numba-compiled functions with sample data to ensure they are precompiled,
-    reducing latency during actual execution.
-    """
-    calculate_implied_volatility_baw(0.1, 100.0, 100.0, 0.01, 0.5, option_type='calls')
-    calculate_delta(100.0, 100.0, 0.5, 0.01, 0.2, option_type='calls')
 
 def load_config():
     """
