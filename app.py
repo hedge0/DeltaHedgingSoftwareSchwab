@@ -29,17 +29,13 @@ async def main():
             app_secret=config["SCHWAB_SECRET"],
             callback_url=config["SCHWAB_CALLBACK_URL"],
             asyncio=True)
-        print("Login successful.")
+        print("Login successful.\n")
     except Exception as e:
         print("Login Failed", f"An error occurred: {str(e)}")
         return
 
     while True:
-        stocks = {}
-        options = {}
-        streamers_tickers = {}
-        deltas = {}
-        imbalances = {}
+        stocks, options, streamers_tickers, deltas = {}, {}, {}, {}
 
         try:
             resp = await session.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[session.Account.Fields.POSITIONS])
@@ -76,37 +72,41 @@ async def main():
                     quote_data = resp.json()
                     for quote in quote_data:
                         quantity = float(options[ticker][quote]["longQuantity"]) - float(options[ticker][quote]["shortQuantity"])
-                        delta = float(quote_data[quote]["quote"]["delta"]) * quantity * 100.0
-                        total_deltas += delta
+                        total_deltas += (float(quote_data[quote]["quote"]["delta"]) * quantity * 100.0)
                 except Exception as e:
                     print("Error fetching quotes:", f"An error occurred: {str(e)}")
             deltas[ticker] = round(total_deltas)
 
         for ticker in deltas:
-            if ticker in stocks:
-                imbalances[ticker] = stocks[ticker] + deltas[ticker]
+            total_shares = stocks.get(ticker, 0)
+            total_deltas = deltas.get(ticker, 0)
+            delta_imbalance = total_shares + total_deltas
+
+            print(f"UNDERLYING SYMBOL: {ticker}")
+            print(f"TOTAL SHARES: {total_shares}")
+            print(f"TOTAL DELTAS: {total_deltas}")
+            print(f"DELTA IMBALANCE: {delta_imbalance}")
+
+            if delta_imbalance != 0:
+                if delta_imbalance > 0:
+                    print(f"ADJUSTMENT NEEDED: Going short {delta_imbalance} shares to hedge the delta exposure.")
+                else:
+                    print(f"ADJUSTMENT NEEDED: Going long {-1 * delta_imbalance} shares to hedge the delta exposure.")
             else:
-                imbalances[ticker] = deltas[ticker]
-                stocks[ticker] = 0
-
-
-
-
-        print(stocks)
-        print("")
-
-        print(deltas)
-        print("")
-
-        print(imbalances)
-        print("")
-
-
-
-
-
+                print(f"No adjustment needed. Delta is perfectly hedged with shares.")  
+            print()
 
         await asyncio.sleep(config["HEDGING_FREQUENCY"])
+
+
+
+
+
+
+
+
+
+
 
 def load_config():
     """
