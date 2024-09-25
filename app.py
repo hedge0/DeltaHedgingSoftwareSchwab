@@ -3,6 +3,8 @@ nest_asyncio.apply()
 
 import httpx
 from schwab.auth import easy_client
+from schwab.orders.equities import equity_buy_market, equity_sell_market
+from schwab.orders.common import Duration, Session
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -12,18 +14,18 @@ load_dotenv()
 
 # Constants and Global Variables
 config = {}
-session = None
+client = None
 
 async def main():
     """
     Main function to initialize the bot.
     """
-    global session
+    global client
     
     load_config()
 
     try:
-        session = easy_client(
+        client = easy_client(
             token_path='token.json',
             api_key=config["SCHWAB_API_KEY"],
             app_secret=config["SCHWAB_SECRET"],
@@ -38,7 +40,7 @@ async def main():
         stocks, options, streamers_tickers, deltas = {}, {}, {}, {}
 
         try:
-            resp = await session.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[session.Account.Fields.POSITIONS])
+            resp = await client.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[client.Account.Fields.POSITIONS])
             assert resp.status_code == httpx.codes.OK
 
             account_data = resp.json()
@@ -66,7 +68,7 @@ async def main():
 
             if len(streamers_tickers[ticker]) != 0:
                 try:
-                    resp = await session.get_quotes(streamers_tickers[ticker])
+                    resp = await client.get_quotes(streamers_tickers[ticker])
                     assert resp.status_code == httpx.codes.OK
 
                     quote_data = resp.json()
@@ -90,24 +92,40 @@ async def main():
             if delta_imbalance != 0:
                 if delta_imbalance > 0:
                     print(f"ADJUSTMENT NEEDED: Going short {delta_imbalance} shares to hedge the delta exposure.")
+
+                    try:
+                        if config["DRY_RUN"] != True:
+                            client.place_order(
+                                config["SCHWAB_ACCOUNT_HASH"],
+                                equity_sell_market(ticker, delta_imbalance)
+                                    .set_duration(Duration.GOOD_TILL_CANCEL)
+                                    .set_session(Session.SEAMLESS)
+                                    .build())
+                        
+                        print(f"Order placed for -{delta_imbalance} shares...")
+                    except Exception as e:
+                        print(f"Order placement failed: {e}")
                 else:
                     print(f"ADJUSTMENT NEEDED: Going long {-1 * delta_imbalance} shares to hedge the delta exposure.")
+
+                    try:
+                        if config["DRY_RUN"] != True:
+                            client.place_order(
+                                config["SCHWAB_ACCOUNT_HASH"],
+                                equity_buy_market(ticker, -1 * delta_imbalance)
+                                    .set_duration(Duration.GOOD_TILL_CANCEL)
+                                    .set_session(Session.SEAMLESS)
+                                    .build())
+                        
+                        print(f"Order placed for +{-1 * delta_imbalance} shares...")
+                    except Exception as e:
+                        print(f"Order placement failed: {e}")
             else:
                 print(f"No adjustment needed. Delta is perfectly hedged with shares.")  
             print()
 
         await asyncio.sleep(config["HEDGING_FREQUENCY"])
-
-
-
-
-
-
-
-
-
-
-
+        
 def load_config():
     """
     Load configuration from environment variables and validate them.
@@ -122,6 +140,7 @@ def load_config():
         "SCHWAB_CALLBACK_URL": os.getenv('SCHWAB_CALLBACK_URL'),
         "SCHWAB_ACCOUNT_HASH": os.getenv('SCHWAB_ACCOUNT_HASH'),
         "HEDGING_FREQUENCY": os.getenv('HEDGING_FREQUENCY'),
+        "DRY_RUN": os.getenv('DRY_RUN', 'True').lower() in ['true', '1', 'yes']
     }
 
     for key, value in config.items():
