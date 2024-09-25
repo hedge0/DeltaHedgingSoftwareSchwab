@@ -34,12 +34,11 @@ async def main():
         print("Login Failed", f"An error occurred: {str(e)}")
         return
 
-
-
-
     while True:
         stocks = {}
         options = {}
+        streamers_tickers = {}
+        deltas = {}
 
         try:
             resp = await session.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[session.Account.Fields.POSITIONS])
@@ -57,27 +56,47 @@ async def main():
 
                 elif asset_type == "OPTION":
                     underlying_symbol = position["instrument"]["underlyingSymbol"]
-                    if underlying_symbol not in options:
-                        options[underlying_symbol] = []
-                    options[underlying_symbol].append(position)
+                    if underlying_symbol not in streamers_tickers:
+                        options[underlying_symbol] = {}
+                        streamers_tickers[underlying_symbol] = []
+                    options[underlying_symbol][position["instrument"]["symbol"]] = position
+                    streamers_tickers[underlying_symbol].append(position["instrument"]["symbol"])
         except Exception as e:
             print("Error fetching account positions:", f"An error occurred: {str(e)}")
 
+        for ticker in options:
+            total_deltas = 0.0
+
+            if len(streamers_tickers[ticker]) != 0:
+                try:
+                    resp = await session.get_quotes(streamers_tickers[ticker])
+                    assert resp.status_code == httpx.codes.OK
+
+                    quote_data = resp.json()
+                    for quote in quote_data:
+                        quantity = float(options[ticker][quote]["longQuantity"]) - float(options[ticker][quote]["shortQuantity"])
+                        delta = float(quote_data[quote]["quote"]["delta"]) * quantity * 100.0
+                        total_deltas += delta
+                except Exception as e:
+                    print("Error fetching quotes:", f"An error occurred: {str(e)}")
+            deltas[ticker] = round(total_deltas)
+
+
+
+
+
         print(stocks)
         print("")
-        print(options)
+
+        print(deltas)
+        print("")
+
+
+
+
+
 
         await asyncio.sleep(config["HEDGING_FREQUENCY"])
-
-
-
-
-
-
-
-
-
-
 
 def load_config():
     """
