@@ -1,3 +1,8 @@
+import nest_asyncio
+nest_asyncio.apply()
+
+import httpx
+from schwab.auth import easy_client
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -8,7 +13,7 @@ load_dotenv()
 # Constants and Global Variables
 config = {}
 
-# Global variables for Tastytrade
+# Global variables for Schwab
 session = None
 
 async def main():
@@ -19,21 +24,16 @@ async def main():
     
     load_config()
 
-
-
-
-
     try:
-        session = Session(login=config["TASTYTRADE_USERNAME"], password=config["TASTYTRADE_PASSWORD"], remember_me=True)
+        session = easy_client(
+            token_path='token.json',
+            api_key=config["SCHWAB_API_KEY"],
+            app_secret=config["SCHWAB_SECRET"],
+            callback_url=config["SCHWAB_CALLBACK_URL"],
+            asyncio=True)
         print("Login successful.")
     except Exception as e:
-        if "invalid_credentials" in str(e):
-            print("Invalid login credentials. Please check your username and password.")
-            return
-        else:
-            raise
-
-
+        print("Login Failed", f"An error occurred: {str(e)}")
 
 
 
@@ -42,44 +42,30 @@ async def main():
         stocks = {}
         options = {}
 
-        positions = account.get_positions(session)
+        try:
+            resp = await session.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[session.Account.Fields.POSITIONS])
+            assert resp.status_code == httpx.codes.OK
+
+            account_data = resp.json()
+            positions = account_data['securitiesAccount']['positions']
+
+            for position in positions:
+                print(position)
+                print("")
 
 
 
-        for underlying_symbol in options:
-            total_deltas = 0.0
-            for option in options[underlying_symbol].values():
-                total_deltas += (option["delta"] * option["quantity"]) * option["direction"]
-            total_deltas = round(total_deltas * 100)
-
-            total_shares = stocks[underlying_symbol]["quantity"] * stocks[underlying_symbol]["direction"]
-            delta_imbalance = total_deltas + total_shares
-            
 
 
 
 
-            print(f"Underlying Symbol: {underlying_symbol}")
-            print(f"Total Shares: {total_shares}")
-            print(f"Total Deltas: {total_deltas}")
-            print(f"Delta Imbalance: {delta_imbalance}")
 
-            if delta_imbalance != 0:
-                if delta_imbalance > 0:
-                    print(f"Adjustment needed: Going short {delta_imbalance} shares to hedge the delta exposure.")
-                else:
-                    print(f"Adjustment needed: Going long {-1 * delta_imbalance} shares to hedge the delta exposure.")
-            else:
-                print("No adjustment needed. Delta is perfectly hedged with shares.")  
-            print()
+
+                
+        except Exception as e:
+            print("Error fetching account positions:", f"An error occurred: {str(e)}")
 
         await asyncio.sleep(config["HEDGING_FREQUENCY"])
-
-
-
-
-
-
 
 
 
@@ -100,9 +86,10 @@ def load_config():
     """
     global config
     config = {
-        "TASTYTRADE_USERNAME": os.getenv('TASTYTRADE_USERNAME'),
-        "TASTYTRADE_PASSWORD": os.getenv('TASTYTRADE_PASSWORD'),
-        "TASTYTRADE_ACCOUNT_NUMBER": os.getenv('TASTYTRADE_ACCOUNT_NUMBER'),
+        "SCHWAB_API_KEY": os.getenv('SCHWAB_API_KEY'),
+        "SCHWAB_SECRET": os.getenv('SCHWAB_SECRET'),
+        "SCHWAB_CALLBACK_URL": os.getenv('SCHWAB_CALLBACK_URL'),
+        "SCHWAB_ACCOUNT_HASH": os.getenv('SCHWAB_ACCOUNT_HASH'),
         "HEDGING_FREQUENCY": os.getenv('HEDGING_FREQUENCY'),
     }
 
