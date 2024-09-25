@@ -39,20 +39,21 @@ async def main():
         options = {}
         streamers_tickers = {}
         deltas = {}
+        imbalances = {}
 
         try:
             resp = await session.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[session.Account.Fields.POSITIONS])
             assert resp.status_code == httpx.codes.OK
 
             account_data = resp.json()
-            positions = account_data['securitiesAccount']['positions']
+            positions = account_data["securitiesAccount"]["positions"]
 
             for position in positions:
                 asset_type = position["instrument"]["assetType"]
 
                 if asset_type == "EQUITY":
                     symbol = position["instrument"]["symbol"]
-                    stocks[symbol] = position
+                    stocks[symbol] = round(float(position["longQuantity"]) - float(position["shortQuantity"]))
 
                 elif asset_type == "OPTION":
                     underlying_symbol = position["instrument"]["underlyingSymbol"]
@@ -81,6 +82,12 @@ async def main():
                     print("Error fetching quotes:", f"An error occurred: {str(e)}")
             deltas[ticker] = round(total_deltas)
 
+        for ticker in deltas:
+            if ticker in stocks:
+                imbalances[ticker] = stocks[ticker] + deltas[ticker]
+            else:
+                imbalances[ticker] = deltas[ticker]
+                stocks[ticker] = 0
 
 
 
@@ -89,6 +96,9 @@ async def main():
         print("")
 
         print(deltas)
+        print("")
+
+        print(imbalances)
         print("")
 
 
