@@ -12,8 +12,6 @@ load_dotenv()
 
 # Constants and Global Variables
 config = {}
-
-# Global variables for Schwab
 session = None
 
 async def main():
