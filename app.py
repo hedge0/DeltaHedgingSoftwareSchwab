@@ -34,6 +34,7 @@ async def main():
         print("Login successful.")
     except Exception as e:
         print("Login Failed", f"An error occurred: {str(e)}")
+        return
 
 
 
@@ -50,20 +51,23 @@ async def main():
             positions = account_data['securitiesAccount']['positions']
 
             for position in positions:
-                print(position)
-                print("")
+                asset_type = position["instrument"]["assetType"]
 
+                if asset_type == "EQUITY":
+                    symbol = position["instrument"]["symbol"]
+                    stocks[symbol] = position
 
-
-
-
-
-
-
-
-                
+                elif asset_type == "OPTION":
+                    underlying_symbol = position["instrument"]["underlyingSymbol"]
+                    if underlying_symbol not in options:
+                        options[underlying_symbol] = []
+                    options[underlying_symbol].append(position)
         except Exception as e:
             print("Error fetching account positions:", f"An error occurred: {str(e)}")
+
+        print(stocks)
+        print("")
+        print(options)
 
         await asyncio.sleep(config["HEDGING_FREQUENCY"])
 
