@@ -95,12 +95,12 @@ async def main():
 
                     try:
                         if config["DRY_RUN"] != True:
-                            client.place_order(
-                                config["SCHWAB_ACCOUNT_HASH"],
-                                equity_sell_market(ticker, delta_imbalance)
-                                    .set_duration(Duration.GOOD_TILL_CANCEL)
-                                    .set_session(Session.SEAMLESS)
-                                    .build())
+                            order = equity_sell_market(ticker, int(delta_imbalance)).set_duration(Duration.GOOD_TILL_CANCEL).set_session(Session.SEAMLESS).build()
+                            resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
+
+                            assert resp.status_code == httpx.codes.OK
+                            order_data = resp.json()
+                            print(order_data)
                         
                         print(f"Order placed for -{delta_imbalance} shares...")
                     except Exception as e:
@@ -110,12 +110,12 @@ async def main():
 
                     try:
                         if config["DRY_RUN"] != True:
-                            client.place_order(
-                                config["SCHWAB_ACCOUNT_HASH"],
-                                equity_buy_market(ticker, -1 * delta_imbalance)
-                                    .set_duration(Duration.GOOD_TILL_CANCEL)
-                                    .set_session(Session.SEAMLESS)
-                                    .build())
+                            order = equity_buy_market(ticker, int(-1 * delta_imbalance)).set_duration(Duration.GOOD_TILL_CANCEL).set_session(Session.SEAMLESS).build()
+                            resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
+
+                            assert resp.status_code == httpx.codes.OK
+                            order_data = resp.json()
+                            print(order_data)
                         
                         print(f"Order placed for +{-1 * delta_imbalance} shares...")
                     except Exception as e:
