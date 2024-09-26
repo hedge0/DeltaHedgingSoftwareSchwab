@@ -4,7 +4,6 @@ nest_asyncio.apply()
 import httpx
 from schwab.auth import easy_client
 from schwab.orders.equities import equity_buy_market, equity_sell_market
-from schwab.orders.common import Duration, Session
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -95,13 +94,9 @@ async def main():
 
                     try:
                         if config["DRY_RUN"] != True:
-                            order = equity_sell_market(ticker, int(delta_imbalance)).set_duration(Duration.GOOD_TILL_CANCEL).set_session(Session.SEAMLESS).build()
+                            order = equity_sell_market(ticker, int(delta_imbalance)).build()
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
-
                             assert resp.status_code == httpx.codes.OK
-                            order_data = resp.json()
-                            print(order_data)
-                        
                         print(f"Order placed for -{delta_imbalance} shares...")
                     except Exception as e:
                         print(f"Order placement failed: {e}")
@@ -110,13 +105,9 @@ async def main():
 
                     try:
                         if config["DRY_RUN"] != True:
-                            order = equity_buy_market(ticker, int(-1 * delta_imbalance)).set_duration(Duration.GOOD_TILL_CANCEL).set_session(Session.SEAMLESS).build()
+                            order = equity_buy_market(ticker, int(-1 * delta_imbalance)).build()
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
-
                             assert resp.status_code == httpx.codes.OK
-                            order_data = resp.json()
-                            print(order_data)
-                        
                         print(f"Order placed for +{-1 * delta_imbalance} shares...")
                     except Exception as e:
                         print(f"Order placement failed: {e}")
