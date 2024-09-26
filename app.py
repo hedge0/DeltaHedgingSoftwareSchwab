@@ -34,6 +34,16 @@ async def main():
     except Exception as e:
         print("Login Failed", f"An error occurred: {str(e)}")
         return
+    
+    try:
+        resp = await client.get_account_numbers()
+        assert resp.status_code == httpx.codes.OK
+
+        account_ID_data = resp.json()
+        print(account_ID_data, "\n")
+    except Exception as e:
+        print("Error fetching account IDs:", f"An error occurred: {str(e)}")
+        return
 
     while True:
         stocks, options, streamers_tickers, deltas = {}, {}, {}, {}
