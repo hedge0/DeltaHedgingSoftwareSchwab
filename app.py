@@ -107,7 +107,7 @@ async def main():
                             order = equity_sell_market(ticker, int(delta_imbalance)).build()
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                             assert resp.status_code == httpx.codes.OK
-                        print(f"Order placed for -{delta_imbalance} shares...")
+                            print(f"Order placed for -{delta_imbalance} shares...")
                     except Exception as e:
                         print(f"Order placement failed: {e}")
                 else:
@@ -118,7 +118,7 @@ async def main():
                             order = equity_buy_market(ticker, int(-1 * delta_imbalance)).build()
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                             assert resp.status_code == httpx.codes.OK
-                        print(f"Order placed for +{-1 * delta_imbalance} shares...")
+                            print(f"Order placed for +{-1 * delta_imbalance} shares...")
                     except Exception as e:
                         print(f"Order placement failed: {e}")
             else:
