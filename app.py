@@ -141,26 +141,23 @@ async def main():
                     try:
                         if config["DRY_RUN"] != True:
                             order = equity_sell_market(ticker, int(delta_imbalance)).build()
+                            print(f"Order placed for -{delta_imbalance} shares...")
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                             assert resp.status_code == httpx.codes.OK
                     except Exception as e:
                         print(f"{e}")
 
-                    if config["DRY_RUN"] != True:
-                        print(f"Order placed for -{delta_imbalance} shares...")
                 else:
                     print(f"ADJUSTMENT NEEDED: Going long {-1 * delta_imbalance} shares to hedge the delta exposure.")
 
                     try:
                         if config["DRY_RUN"] != True:
                             order = equity_buy_market(ticker, int(-1 * delta_imbalance)).build()
+                            print(f"Order placed for +{-1 * delta_imbalance} shares...")
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                             assert resp.status_code == httpx.codes.OK
                     except Exception as e:
                         print(f"{e}")
-
-                    if config["DRY_RUN"] != True:
-                        print(f"Order placed for +{-1 * delta_imbalance} shares...")
             else:
                 print(f"No adjustment needed. Delta is perfectly hedged with shares.")  
             print()
