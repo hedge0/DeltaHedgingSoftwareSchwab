@@ -7,7 +7,7 @@ from schwab.auth import easy_client
 from schwab.orders.equities import equity_buy_market, equity_sell_market
 import asyncio
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
 from models import calculate_delta, calculate_implied_volatility_baw
 
