@@ -2,26 +2,39 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import httpx
+from fredapi import Fred
 from schwab.auth import easy_client
 from schwab.orders.equities import equity_buy_market, equity_sell_market
 import asyncio
 import os
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from models import calculate_delta, calculate_implied_volatility_baw
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Constants and Global Variables
 config = {}
+risk_free_rate = 0.0
 client = None
 
 async def main():
     """
     Main function to initialize the bot.
     """
-    global client
+    global client, risk_free_rate
     
+    precompile_numba_functions()
     load_config()
+
+    try:
+        fred = Fred(api_key=config["FRED_API_KEY"])
+        sofr_data = fred.get_series('SOFR')
+        risk_free_rate = (sofr_data.iloc[-1] / 100)
+    except Exception as e:
+        print("FRED API Error", f"Invalid FRED API Key: {str(e)}")
+        return
 
     try:
         client = easy_client(
@@ -77,13 +90,29 @@ async def main():
 
             if len(streamers_tickers[ticker]) != 0:
                 try:
+                    resp = await client.get_quote(ticker)
+                    assert resp.status_code == httpx.codes.OK
+
+                    stock_quote_data = resp.json()
+                    S = round((stock_quote_data[ticker]['quote']['bidPrice'] + stock_quote_data[ticker]['quote']['askPrice']) / 2, 3)
+                    current_time = datetime.now()
+
                     resp = await client.get_quotes(streamers_tickers[ticker])
                     assert resp.status_code == httpx.codes.OK
 
                     quote_data = resp.json()
                     for quote in quote_data:
+                        price = (quote_data[quote]["quote"]["bidPrice"] + quote_data[quote]["quote"]["askPrice"]) / 2
+                        expiration_time = datetime(quote_data[quote]['reference']['expirationYear'], quote_data[quote]['reference']['expirationMonth'], quote_data[quote]['reference']['expirationDay'])
+                        T = (expiration_time - current_time).total_seconds() / (365 * 24 * 3600)
+                        K = float(quote_data[quote]['reference']['strikePrice'])
+                        option_type = 'calls' if quote_data[quote]['reference']['contractType'] == 'C' else 'puts'
+
+                        sigma = calculate_implied_volatility_baw(price, S, K, risk_free_rate, T, option_type=option_type)
+                        delta = calculate_delta(S, K, T, risk_free_rate, sigma, option_type=option_type)
+
                         quantity = float(options[ticker][quote]["longQuantity"]) - float(options[ticker][quote]["shortQuantity"])
-                        total_deltas += (float(quote_data[quote]["quote"]["delta"]) * quantity * 100.0)
+                        total_deltas += (delta * quantity * 100.0)
                 except Exception as e:
                     print("Error fetching quotes:", f"An error occurred: {str(e)}")
             deltas[ticker] = round(total_deltas)
@@ -144,6 +173,7 @@ def load_config():
         "SCHWAB_SECRET": os.getenv('SCHWAB_SECRET'),
         "SCHWAB_CALLBACK_URL": os.getenv('SCHWAB_CALLBACK_URL'),
         "SCHWAB_ACCOUNT_HASH": os.getenv('SCHWAB_ACCOUNT_HASH'),
+        "FRED_API_KEY": os.getenv('FRED_API_KEY'),
         "HEDGING_FREQUENCY": os.getenv('HEDGING_FREQUENCY'),
         "DRY_RUN": os.getenv('DRY_RUN', 'True').lower() in ['true', '1', 'yes']
     }
@@ -156,6 +186,16 @@ def load_config():
         config["HEDGING_FREQUENCY"] = float(config["HEDGING_FREQUENCY"])
     except ValueError:
         raise ValueError("HEDGING_FREQUENCY environment variable must be a valid float")
+    
+def precompile_numba_functions():
+    """
+    Precompile Numba functions to improve performance.
+
+    This method calls Numba-compiled functions with sample data to ensure they are precompiled,
+    reducing latency during actual execution.
+    """
+    calculate_implied_volatility_baw(0.1, 100.0, 100.0, 0.01, 0.5, option_type='calls')
+    calculate_delta(100.0, 100.0, 0.5, 0.01, 0.2, option_type='calls')
 
 if __name__ == "__main__":
     asyncio.run(main())
