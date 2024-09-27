@@ -59,7 +59,7 @@ async def main():
         return
 
     while True:
-        stocks, options, streamers_tickers, deltas = {}, {}, {}, {}
+        stocks, options, streamers_tickers, deltas, stocks_to_hedge = {}, {}, {}, {}, {}
 
         try:
             resp = await client.get_account(config["SCHWAB_ACCOUNT_HASH"], fields=[client.Account.Fields.POSITIONS])
@@ -87,7 +87,6 @@ async def main():
 
         for ticker in options:
             total_deltas = 0.0
-
             if len(streamers_tickers[ticker]) != 0:
                 try:
                     resp = await client.get_quote(ticker)
@@ -110,17 +109,25 @@ async def main():
 
                         sigma = calculate_implied_volatility_baw(price, S, K, risk_free_rate, T, option_type=option_type)
                         delta = calculate_delta(S, K, T, risk_free_rate, sigma, option_type=option_type)
+                        if (sigma < 0.005):
+                            stocks_to_hedge[ticker] = False
 
                         quantity = float(options[ticker][quote]["longQuantity"]) - float(options[ticker][quote]["shortQuantity"])
                         total_deltas += (delta * quantity * 100.0)
                 except Exception as e:
                     print("Error fetching quotes:", f"An error occurred: {str(e)}")
             deltas[ticker] = round(total_deltas)
+            if ticker not in stocks_to_hedge:
+                stocks_to_hedge[ticker] = True
 
         for ticker in deltas:
             total_shares = stocks.get(ticker, 0)
             total_deltas = deltas.get(ticker, 0)
-            delta_imbalance = total_shares + total_deltas
+
+            if stocks_to_hedge[ticker] == True:
+                delta_imbalance = total_shares + total_deltas
+            else:
+                delta_imbalance = 0
 
             print(f"UNDERLYING SYMBOL: {ticker}")
             print(f"TOTAL SHARES: {total_shares}")
