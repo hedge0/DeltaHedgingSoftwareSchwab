@@ -94,6 +94,7 @@ async def main():
 
                     stock_quote_data = resp.json()
                     S = round((stock_quote_data[ticker]['quote']['bidPrice'] + stock_quote_data[ticker]['quote']['askPrice']) / 2, 3)
+                    div_yield = float(stock_quote_data[ticker]["fundamental"]["divYield"]) / 100
                     current_time = datetime.now()
 
                     resp = await client.get_quotes(streamers_tickers[ticker])
@@ -107,8 +108,8 @@ async def main():
                         K = float(quote_data[quote]['reference']['strikePrice'])
                         option_type = 'calls' if quote_data[quote]['reference']['contractType'] == 'C' else 'puts'
 
-                        sigma = calculate_implied_volatility_baw(price, S, K, risk_free_rate, T, option_type=option_type)
-                        delta = calculate_delta(S, K, T, risk_free_rate, sigma, option_type=option_type)
+                        sigma = calculate_implied_volatility_baw(price, S, K, risk_free_rate, T, q=div_yield, option_type=option_type)
+                        delta = calculate_delta(S, K, T, risk_free_rate, sigma, q=div_yield, option_type=option_type)
                         if (sigma < 0.005):
                             stocks_to_hedge[ticker] = False
 
