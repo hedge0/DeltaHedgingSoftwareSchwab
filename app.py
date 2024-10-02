@@ -141,7 +141,7 @@ async def main():
 
                     try:
                         if config["DRY_RUN"] != True:
-                            order = equity_sell_market(ticker, int(delta_imbalance)).build()
+                            order = equity_buy_market(ticker, -1 * int(delta_imbalance)).build()
                             print(f"Order placed for -{delta_imbalance} shares...")
                             resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                             assert resp.status_code == httpx.codes.OK
