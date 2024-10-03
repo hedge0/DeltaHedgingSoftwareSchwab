@@ -121,7 +121,6 @@ async def main():
             if ticker not in stocks_to_hedge:
                 stocks_to_hedge[ticker] = True
 
-        for ticker in deltas:
             total_shares = stocks.get(ticker, 0)
             total_deltas = deltas.get(ticker, 0)
 
@@ -162,6 +161,46 @@ async def main():
             else:
                 print(f"No adjustment needed. Delta is perfectly hedged with shares.")  
             print()
+
+        for ticker in stocks:
+            if ticker not in options:
+                total_shares = stocks.get(ticker, 0)
+                total_deltas = 0
+
+                print(f"UNDERLYING SYMBOL: {ticker}")
+                print(f"TOTAL SHARES: {total_shares}")
+                print(f"TOTAL DELTAS: {total_deltas}")
+                print(f"DELTA IMBALANCE: {delta_imbalance}")
+
+                delta_imbalance = total_shares + total_deltas
+
+                if delta_imbalance != 0:
+                    if delta_imbalance > 0:
+                        print(f"ADJUSTMENT NEEDED: Going short {delta_imbalance} shares to hedge the delta exposure.")
+
+                        try:
+                            if config["DRY_RUN"] != True:
+                                order = equity_sell_short_market(ticker, int(delta_imbalance)).build()
+                                print(f"Order placed for -{delta_imbalance} shares...")
+                                resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
+                                assert resp.status_code == httpx.codes.OK
+                        except Exception as e:
+                            print(f"{e}")
+
+                    else:
+                        print(f"ADJUSTMENT NEEDED: Going long {-1 * delta_imbalance} shares to hedge the delta exposure.")
+
+                        try:
+                            if config["DRY_RUN"] != True:
+                                order = equity_buy_market(ticker, int(-1 * delta_imbalance)).build()
+                                print(f"Order placed for +{-1 * delta_imbalance} shares...")
+                                resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
+                                assert resp.status_code == httpx.codes.OK
+                        except Exception as e:
+                            print(f"{e}")
+                else:
+                    print(f"No adjustment needed. Delta is perfectly hedged with shares.")  
+                print()
 
         await asyncio.sleep(config["HEDGING_FREQUENCY"])
         
