@@ -4,7 +4,7 @@ nest_asyncio.apply()
 import httpx
 from fredapi import Fred
 from schwab.auth import easy_client
-from schwab.orders.equities import equity_buy_market, equity_sell_short_market
+from schwab.orders.equities import equity_buy_market, equity_sell_short_market, equity_sell_market, equity_buy_to_cover_market
 import asyncio
 import os
 from datetime import datetime
@@ -180,7 +180,7 @@ async def main():
 
                         try:
                             if config["DRY_RUN"] != True:
-                                order = equity_sell_short_market(ticker, int(delta_imbalance)).build()
+                                order = equity_sell_market(ticker, int(delta_imbalance)).build()
                                 print(f"Order placed for -{delta_imbalance} shares...")
                                 resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                                 assert resp.status_code == httpx.codes.OK
@@ -192,7 +192,7 @@ async def main():
 
                         try:
                             if config["DRY_RUN"] != True:
-                                order = equity_buy_market(ticker, int(-1 * delta_imbalance)).build()
+                                order = equity_buy_to_cover_market(ticker, int(-1 * delta_imbalance)).build()
                                 print(f"Order placed for +{-1 * delta_imbalance} shares...")
                                 resp = await client.place_order(config["SCHWAB_ACCOUNT_HASH"], order)
                                 assert resp.status_code == httpx.codes.OK
