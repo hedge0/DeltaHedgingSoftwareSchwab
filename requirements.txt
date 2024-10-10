@@ -1,3 +1,4 @@
+nest-asyncio
 python-dotenv
 httpx
 schwab-py
